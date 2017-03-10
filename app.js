@@ -1,11 +1,12 @@
 // Setup basic express server
 var express = require('express');
+    http = require('http');
 var app = express();
 
-var server = app.listen(3000);
+var server = http.createServer(app)
 //var io = require('../..')(server);
 var io = require('socket.io').listen(server);
-//var port = process.env.PORT || 3000;
+var port = process.env.PORT || 3000;
 
 server.listen(port, function () {
   console.log('Server listening at port %d', port);
