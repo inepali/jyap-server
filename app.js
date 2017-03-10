@@ -8,9 +8,15 @@ var server = http.createServer(app)
 var io = require('socket.io').listen(server);
 var port = process.env.PORT || 8088;
 
+io.configure(function() {
+    io.set('transports', ['websocket']);
+  });
+
 server.listen(port, function () {
   console.log('Server listening at port %d', port);
 });
+
+
 
 // Routing
 app.use(express.static(__dirname + '/public'));
