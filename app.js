@@ -8,6 +8,11 @@ var server = http.createServer(app)
 var io = require('socket.io').listen(server);
 var port = process.env.PORT || 8088;
 
+io.configure(function(){
+  io.set('transports', ['websocket']);
+  io.set('log level', 5)
+});
+
 server.listen(port, function () {
   console.log('Server listening at port %d', port);
 });
