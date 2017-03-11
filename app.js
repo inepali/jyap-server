@@ -1,15 +1,15 @@
 // Setup basic express server
 var express = require('express');
 var app = express();
-var http = require("http");
-var server = http.createServer(app);
+
+var server = app.listen(3000);
 //var io = require('../..')(server);
 var io = require('socket.io')(server);
 var port = process.env.PORT || 3000;
 
-server.listen(port, function () {
-  console.log('Server listening at port %d', port);
-});
+// server.listen(port, function () {
+//   console.log('Server listening at port %d', port);
+// });
 
 // Routing
 app.use(express.static(__dirname + '/public'));
