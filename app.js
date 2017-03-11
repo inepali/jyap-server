@@ -1,23 +1,14 @@
 // Setup basic express server
 var express = require('express');
 var app = express();
-
 var server = require('http').createServer(app);
 //var io = require('../..')(server);
 var io = require('socket.io')(server);
-io.set('transports', ['websocket']);
-var port = process.env.PORT || 3100;
+var port = process.env.PORT || 3000;
 
-//  io.configure(function(){
-//    io.set('transports', ['websocket']);
-//    io.set('log level', 5)
-//  });
-
- server.listen(port, function () {
-   console.log('Server listening at port %d', port);
- });
-
-
+server.listen(port, function () {
+  console.log('Server listening at port %d', port);
+});
 
 // Routing
 app.use(express.static(__dirname + '/public'));
