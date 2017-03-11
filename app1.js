@@ -4,7 +4,7 @@ var app = express();
 
 var server = require('http').createServer(app);
 var io = require('socket.io')(server);
-server.listen(3000, function(){
+server.listen(30000, function(){
   console.log('Server listening');
 });
 //var io = require('../..')(server);
