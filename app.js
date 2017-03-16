@@ -12,8 +12,9 @@ connections = [];
 var roomNum = 1;
 var roomSize = 8
 
-server.listen(3100);
-console.log('Server is running on %s', PORT);
+server.listen(port, function () {
+  console.log('Server listening at port %d', port);
+});
 
 app.get('/', function (req, res) {
     res.sendFile(__dirname + "/index.html");
