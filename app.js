@@ -1,76 +1,85 @@
-// Setup basic express server
-var express = require('express');
+var express = require("express");
 var app = express();
 var server = require('http').createServer(app);
-var io = require('socket.io')(server);
-var port = process.env.PORT || 3000;
+var io = require('socket.io').listen(server);
+var port = process.env.PORT || 3100;
 
-server.listen(port, function () {
-  console.log('Server listening at port %d', port);
+users = [];
+players = [];
+deck = [];
+
+connections = [];
+var roomNum = 1;
+var roomSize = 8
+
+server.listen(3100);
+console.log('Server is running on %s', PORT);
+
+app.get('/', function (req, res) {
+    res.sendFile(__dirname + "/index.html");
 });
 
+var showLog = function () {
+    console.log('Connected %s socket(s), %s connected', connections.length, users.length, roomNum);
+
+};
+
+var log = function (msg) {
+    console.log (msg);
+};
+
+io.sockets.on('connection', function (socket) {
+    connections.push(socket.id);
+
+log('connection started: ' + socket.id);
+
+    // console.log(socket.adapter.rooms["room-" + roomNum]);
 
 
-// Routing
-app.use(express.static(__dirname + '/public'));
+    //  if (socket.adapter.rooms && socket.adapter.rooms["room-" + roomNum] && socket.adapter.rooms["room-" + roomNum].length > 2)
+    //      roomNum++;
 
-// Chatroom
-var numUsers = 0;
+    // socket.join("room-" + roomNum);
 
-io.on('connection', function (socket) {
-  var addedUser = false;
+    showLog();
 
-  // when the client emits 'new message', this listens and executes
-  socket.on('new message', function (data) {
-    // we tell the client to execute 'new message'
-    socket.broadcast.emit('new message', {
-      username: socket.username,
-      message: data
+    socket.on('disconnect', function (data) {
+        connections.splice(connections.indexOf(socket), 1)
+        io.sockets.emit('UPDATE_USERS', { onlineUsers: users });
+
+        showLog();
     });
-  });
 
-  // when the client emits 'add user', this listens and executes
-  socket.on('add user', function (username) {
-    if (addedUser) return;
+    //send message
+    socket.on('SEND_MESSAGE', function (data) {
+        io.sockets.emit('NEW_MESSAGE', { msg: data });
+        showLog();
+    })
 
-    // we store the username in the socket session for this client
-    socket.username = username;
-    ++numUsers;
-    addedUser = true;
-    socket.emit('login', {
-      numUsers: numUsers
-    });
-    // echo globally (all clients) that a person has connected
-    socket.broadcast.emit('user joined', {
-      username: socket.username,
-      numUsers: numUsers
-    });
-  });
+    socket.on('PLAYER_JOINED', function (data) {
+        log('player joined call');
+        players.push(data);
+        io.sockets.emit('UPDATE_USERS', { players: players });
+    })
 
-  // when the client emits 'typing', we broadcast it to others
-  socket.on('typing', function () {
-    socket.broadcast.emit('typing', {
-      username: socket.username
-    });
-  });
+    socket.on('NEW_CONNECTION', function (data) {
+        users.push(data);
 
-  // when the client emits 'stop typing', we broadcast it to others
-  socket.on('stop typing', function () {
-    socket.broadcast.emit('stop typing', {
-      username: socket.username
-    });
-  });
+        io.sockets.emit('NEW_CONNECTION', { user: data });
 
-  // when the user disconnects.. perform this
-  socket.on('disconnect', function () {
-    if (addedUser) {
-      --numUsers;
+        setTimeout(function () {
+            io.sockets.emit('UPDATE_USERS', { onlineUsers: users });
+        }, 4000);
 
-      // echo globally that this client has left
-      socket.broadcast.emit('user left', {
-        username: socket.username,
-        numUsers: numUsers
-      });
-    }
-  });
+        //io.sockets.emit('UPDATE_USERS', {onlineUsers: users});
+        showLog();
+    })
+    socket.on("TAKE_CARD", function (data) {
+        var card = deck[0];
+        deck.splic(0, 1);
+
+        io.sockets.emit('UPDATE_USERS', { onlineUsers: users });
+    })
+
 });
+
