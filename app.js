@@ -16,9 +16,7 @@ server.listen(port, function () {
   console.log('Server listening at port %d', port);
 });
 
-app.get('/', function (req, res) {
-    res.sendFile(__dirname + "/index.html");
-});
+app.use(express.static(__dirname + '/public'));
 
 var showLog = function () {
     console.log('Connected %s socket(s), %s connected', connections.length, users.length, roomNum);
