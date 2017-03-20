@@ -6,14 +6,17 @@ var port = process.env.PORT || 3200;
 
 
 var players = [];
-var deck = [];
+var deck;
 var rooms = [];
+
+var isGameOn = false;
 
 var cardTyes = [
     { key: 'C', name: 'Club' },
     { key: 'D', name: "Diamond" },
     { key: 'H', name: "Heart" },
     { key: 'S', name: "Spade" }];
+
 var numberOfDeck = 2;
 var _choiceCard;
 
@@ -37,16 +40,24 @@ var prepareDeckAndShuffle = function () {
     // load number of decks
     deck = [];
 
+    //log(numberOfDeck);
+    //log(cardTyes.length)
+
     for (var n = 0; n < numberOfDeck; n++) {
         for (var i = 0; i < cardTyes.length; i++) {
             for (var j = 1; j <= 13; j++) {
+
                 var card = {};
+               // log(cardTyes[i].key + j);
                 card.params = { name: cardTyes[i].key + j, num: j, cardType: cardTyes[i].key }
                 deck.push(card);
+
+                //log(card.params.name + ' ' + card.params.num);
             }
         }
     }
 
+    //log(deck.length);
     //shuffle deck
     var currentIndex = deck.length, tempValue, randomIndex
 
@@ -60,35 +71,34 @@ var prepareDeckAndShuffle = function () {
         deck[currentIndex] = deck[randomIndex];
         deck[randomIndex] = tempValue;
     }
+
     log('Deck Prepared');
 };
 
 var dealGame = function () {
+    isGameOn = true;
 
-    io.sockets.emit('GAME_ON_OFF', { gameOn: true });
+    io.sockets.emit('GAME_ON_OFF', { gameOn: isGameOn });
 
     for (var i = 0; i < 5; i++) {
-        players.forEach(function (player) {
-            //get the top card
+        for (var j = 0; j < players.length; j++) {
             var card = deck[0];
-
-            if (player.name != null) {
-                player.hands = player.hands || [];
-                player.hands.push(card);
-
-                deck.splice(0, 1);
-            }
-        });
-
-        //chice card 
-        _choiceCard = deck[0];
-        deck.splice(0, 1);
+            players[j].hands = players[j].hands || [];
+            players[j].hands.push(card);
+            deck.splice(0, 1);
+            
+            log('Player ' + players[j].nickname + ' got ' + card.params.name);
+        }
     }
 
-    io.sockets.emit('UPDATE_PLAYERS', { players: players, choiceCard: _choiceCard });
-    //io.sockets.emit('CHOICE_CARD_SELECTED', { choiceCard: _choiceCard });
+    //chice card 
+    _choiceCard = deck[0];
+    deck.splice(0, 1);
 
-    log('Game Deal Completed');
+io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: null, choiceCard: _choiceCard });
+//io.sockets.emit('CHOICE_CARD_SELECTED', { choiceCard: _choiceCard });
+
+log('Game Deal Completed');
 };
 
 io.sockets.on('connection', function (socket) {
@@ -155,12 +165,12 @@ io.sockets.on('connection', function (socket) {
             prepareDeckAndShuffle();
         }
 
-        if (players.length == 2) {
-            setTimeout(function(){ dealGame(); }, 3000);
+        if (players.length >= 2) {
+            setTimeout(function () { dealGame(); }, 5000);
         }
 
-        io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: data });
-        
+        io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: data, choiceCard: null });
+
     });
 
     // when player hit the exit button
@@ -212,4 +222,3 @@ io.sockets.on('connection', function (socket) {
     });
 
 });
-
