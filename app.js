@@ -4,7 +4,6 @@ var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
 var port = process.env.PORT || 3200;
 
-
 var players = [];
 var deck;
 var rooms = [];
@@ -26,8 +25,7 @@ var roomNum = 1;
 var roomSize = 8
 
 server.listen(port, function () {
-    log('Server listening at port ' + port);
-    log(players.length);
+    log('Welcome to Jyap Server listening at port ' + port);
 });
 
 app.use(express.static(__dirname + '/public'));
@@ -97,7 +95,7 @@ var dealGame = function () {
     deck.splice(0, 1);
 
     io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: null, choiceCard: _choiceCard});
-    io.sockets.emit('SET_TURN', players[playerInTurn]);
+    io.sockets.emit('CHANGE_TURN', players[playerInTurn]);
     //io.sockets.emit('CHOICE_CARD_SELECTED', { choiceCard: _choiceCard });
 
     log('Game Deal Completed');
@@ -107,8 +105,6 @@ io.sockets.on('connection', function (socket) {
     connections.push(socket.id);
 
     log('Connection started ' + socket.id + ', # of connections ' + connections.length);
-
-    log(players.length);
 
     // console.log(socket.adapter.rooms["room-" + roomNum]);
 
@@ -232,8 +228,13 @@ io.sockets.on('connection', function (socket) {
     });
 
     socket.on("CHANGE_TURN", function (data) {
+        log("CHANGE_TURN called");
         playerInTurn++;
         io.sockets.emit("CHANGE_TURN", players[playerInTurn]);
+    });
+
+    socket.on("DRAG_CARD", function (data) {
+        io.sockets.emit("DRAG_CARD", data);
     });
 
 
