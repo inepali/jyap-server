@@ -76,6 +76,7 @@ var prepareDeckAndShuffle = function () {
 
 var dealGame = function () {
     isGameOn = true;
+    playerInTurn = 0;
 
     io.sockets.emit('GAME_ON_OFF', { gameOn: isGameOn });
 
@@ -95,6 +96,7 @@ var dealGame = function () {
     deck.splice(0, 1);
 
     io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: null, choiceCard: _choiceCard});
+    console.log("Deal and set player in turn" + players[playerInTurn].nickname);
     io.sockets.emit('CHANGE_TURN', players[playerInTurn]);
     //io.sockets.emit('CHOICE_CARD_SELECTED', { choiceCard: _choiceCard });
 
@@ -227,8 +229,12 @@ io.sockets.on('connection', function (socket) {
         io.sockets.emit('CARDS_THROW', data);
     });
 
-    socket.on("CHANGE_TURN", function (data) {
-        log("CHANGE_TURN called");
+        // when player take a card 
+    socket.on("CHOICE_CARD_TAKEN", function (data) {
+        io.sockets.emit('CHOICE_CARD_TAKEN', data);
+    });
+
+    socket.on("CHANGE_TURN", function() {
         playerInTurn++;
         io.sockets.emit("CHANGE_TURN", players[playerInTurn]);
     });
