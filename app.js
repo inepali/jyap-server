@@ -7,6 +7,7 @@ var port = process.env.PORT || 3200;
 var players = [];
 var deck;
 var rooms = [];
+var card;
 
 var isGameOn = false;
 var playerInTurn = 0;
@@ -32,6 +33,11 @@ app.use(express.static(__dirname + '/public'));
 
 var log = function (obj) {
     console.log(JSON.stringify(obj));
+};
+
+var performGameResults = function()
+{
+
 };
 
 var prepareDeckAndShuffle = function () {
@@ -95,7 +101,7 @@ var dealGame = function () {
     _choiceCard = deck[0];
     deck.splice(0, 1);
 
-    io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: null, choiceCard: _choiceCard});
+    io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: null, choiceCard: _choiceCard });
     console.log("Deal and set player in turn" + players[playerInTurn].nickname);
     io.sockets.emit('CHANGE_TURN', players[playerInTurn]);
     //io.sockets.emit('CHOICE_CARD_SELECTED', { choiceCard: _choiceCard });
@@ -152,6 +158,14 @@ io.sockets.on('connection', function (socket) {
         io.sockets.emit('UPDATE_PLAYERS', { players: players });
     });
 
+    socket.on("CARD_FROM_DECK", function (data) {
+        var card = deck[0];
+        deck.splice(0, 1);
+
+        io.sockets.emit('CARD_FROM_DECK', card);
+        console.log("new card taken from deck " + card.params.name);
+    });
+
     // when player joined to room
     socket.on('PLAYER_JOINED', function (data) {
         log(data);
@@ -160,15 +174,15 @@ io.sockets.on('connection', function (socket) {
         log(players.length);
 
         if (players.length == 1) {
-            data.starter = true;
+            data.isDealer = true;
             prepareDeckAndShuffle();
         }
 
         players.push(data);
 
-        if (players.length >= 2) {
-            setTimeout(function () { dealGame(); }, 5000);
-        }
+        // if (players.length >= 2) {
+        //     setTimeout(function () { dealGame(); }, 5000);
+        // }
 
         io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: data, choiceCard: null });
 
@@ -224,23 +238,70 @@ io.sockets.on('connection', function (socket) {
         io.sockets.emit('UPDATE_USERS', { onlineUsers: users });
     });
 
-    // when player take a card 
+    // when player throw a card 
     socket.on("CARDS_THROW", function (data) {
         io.sockets.emit('CARDS_THROW', data);
     });
 
-        // when player take a card 
+    // when player take choice card 
     socket.on("CHOICE_CARD_TAKEN", function (data) {
         io.sockets.emit('CHOICE_CARD_TAKEN', data);
     });
 
-    socket.on("CHANGE_TURN", function() {
-        playerInTurn++;
+    // when player ignore choice card 
+    socket.on("CHOICE_CARD_IGNORED", function () {
+        io.sockets.emit('CHOICE_CARD_IGNORED');
+        console.log("CHOICE_CARD_IGNORED");
+    });
+
+     // when player take a card from floor
+    socket.on("CARD_FROM_FLOOR", function (data) {
+        io.sockets.emit('CARD_FROM_FLOOR', data);
+        console.log("a card taken from floor ");
+    });
+
+    socket.on("CHANGE_TURN", function () {
+        if (playerInTurn == players.length-1) {
+            playerInTurn = 0;
+        } else {
+            playerInTurn++;
+        }
+
+        console.log('Changing turn to ' + playerInTurn);
+
         io.sockets.emit("CHANGE_TURN", players[playerInTurn]);
     });
 
     socket.on("DRAG_CARD", function (data) {
         io.sockets.emit("DRAG_CARD", data);
+    });
+
+     socket.on("START_GAME", function () {
+        dealGame();
+    });
+
+    // when one player called game
+    socket.on("CALL_GAME", function(data){
+        for (var i = 0; i < players.length; i++) {
+            if (players[i].id == socket.id) {
+                players[i].isGameCalled = true;
+                console.log('Player ' + data.nickname + ' called game with ' + data.points + ' in hand');
+                break;
+            }
+        }
+
+        io.sockets.emit("GAME_CALL_UPDATE", data);
+    });
+
+    // when one player called game
+    socket.on("CALL_CALL_UPDATE", function(points){
+        for (var i = 0; i < players.length; i++) {
+            if (players[i].id == socket.id) {
+                players[i].points=points;
+                console.log('Player ' + data.nickname + ' has ' + points + ' points in hand');
+                break;
+            }
+        }
     });
 
 
