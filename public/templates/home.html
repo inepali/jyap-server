@@ -1,0 +1,11 @@
+<ion-view view-title="Welcome to Jyap">
+  <ion-content ng-init="say()">
+	  <div class="list list-inset">
+	  	<label class="item item-input" >
+	    	<input type="text" class="white" placeholder="What is your nickname?" ng-model="$parent.player.nickname">
+	  	</label>
+	  	<button class="button button-block button-grey" ng-click="join()">Join</button>
+	  </div>
+  </ion-content>
+</ion-view>
+

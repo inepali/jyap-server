@@ -1,0 +1,11 @@
+{
+  "name": "Jyap",
+  "short_name": "Stream IT is as little webradio player, recognizes and plays, MP3, AAC / AAC+, Shoutcast audio stream.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "icons": [{
+    "src": "icon.png",
+    "sizes": "512x512",
+    "type": "image/png"
+  }]
+}
