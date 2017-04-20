@@ -12,6 +12,9 @@ var card;
 var isGameOn = false;
 var playerInTurn = 0;
 
+var gameRates = [1, 2, 4];
+var penaltyRate = 10;
+
 var cardTyes = [
     { key: 'C', name: 'Club' },
     { key: 'D', name: "Diamond" },
@@ -26,7 +29,7 @@ var roomNum = 1;
 var roomSize = 8
 
 server.listen(port, function () {
-    log('Welcome to Jyap Server listening at port ' + port);
+    log('Welcome to Jhyap Server listening at port ' + port);
 });
 
 app.use(express.static(__dirname + '/public'));
@@ -35,8 +38,82 @@ var log = function (obj) {
     console.log(JSON.stringify(obj));
 };
 
-var performGameResults = function()
-{
+var comparePoints = function (p1, p2) {
+    if (p1.points < p2.points)
+        return -1;
+    if (p1.points > p2.points)
+        return 1;
+    return 0;
+}
+
+
+
+var resetGame = function () {
+    console.log('RESET GAME');
+    io.sockets.emit("RESET_GAME");
+    io.sockets.emit('CARDS_THROW', []);
+    setTimeout(dealGame, 3000);
+};
+
+var checkResults = function () {
+
+    // let's sort all player based on their points
+    players.sort(comparePoints);
+    //console.log(players);
+
+    // check first index is caller;
+    if (players[0].isCalled) {
+        io.sockets.emit("NEW_MESSAGE", 'IT IS A JHYAP');
+        io.sockets.emit("NEW_MESSAGE", players[0].nickname + ' is the winner!');
+        // let's least point index 1 will pay low value to the winner
+
+
+        if (players.length == 2) {
+            players[0].balance += gameRates[1];
+            players[1].balance -= gameRates[1];
+        } else if (players.length == 3) {
+            players[0].balance += gameRates[0];
+            players[1].balance -= gameRates[0];
+
+            players[0].balance += gameRates[2];
+            players[1].balance -= gameRates[2];
+        } else {
+
+            players[0].balance += gameRates[0];
+            players[1].balance -= gameRates[0];
+
+            // le'ts high point pay highest Game Rate gameRates[2]
+            players[0].balance += gameRates[2];
+            players[players.length - 1] -= gameRates[2];
+
+            for (var i = 2; i < players.length - 1; i++) {
+                players[0].balance += gameRates[1];
+                players[i].balance -= gameRates[1];
+            }
+        }
+    } else {
+
+        io.sockets.emit("NEW_MESSAGE", 'IT IS A PENALTY');
+        // let's find out who called the game, pay the penalty
+        for (var i = 1; i < players.length; i++) {
+            if (players[i].isCalled) {
+                players[0].balance += penaltyRate;
+                players[i].balance -= penaltyRate;
+                io.sockets.emit("NEW_MESSAGE", players[0].nickname + ' is the winner!');
+                players[i].isCalled = false;
+                break;
+            }
+        }
+    }
+
+    io.sockets.emit('UPDATE_BALANCE', players);
+    //io.sockets.emit("NEW_MESSAGE", 'GAME OVER');
+    io.sockets.emit("NEW_MESSAGE", players[0].nickname + ' is the winner!');
+
+    resetPlayers();
+
+    setTimeout(resetGame, 3000);
+
 
 };
 
@@ -45,19 +122,13 @@ var prepareDeckAndShuffle = function () {
     // load number of decks
     deck = [];
 
-    //log(numberOfDeck);
-    //log(cardTyes.length)
-
     for (var n = 0; n < numberOfDeck; n++) {
         for (var i = 0; i < cardTyes.length; i++) {
             for (var j = 1; j <= 13; j++) {
-
                 var card = {};
                 // log(cardTyes[i].key + j);
                 card.params = { name: cardTyes[i].key + j, num: j, cardType: cardTyes[i].key }
                 deck.push(card);
-
-                //log(card.params.name + ' ' + card.params.num);
             }
         }
     }
@@ -77,7 +148,18 @@ var prepareDeckAndShuffle = function () {
         deck[randomIndex] = tempValue;
     }
 
-    log('Deck Prepared');
+    log('Deck Ready');
+};
+
+var resetPlayers = function () {
+    console.log('resetting all players');
+    for (var j = 0; j < players.length; j++) {
+        players[j].hands = [];
+        players[j].isCalled = false;
+        players[j].isDealer = false;
+    }
+console.log('dealer set to ' + players[0].nickname);
+    players[0].isDealer = true;
 };
 
 var dealGame = function () {
@@ -101,12 +183,9 @@ var dealGame = function () {
     _choiceCard = deck[0];
     deck.splice(0, 1);
 
-    io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: null, choiceCard: _choiceCard });
+    io.sockets.emit('UPDATE_GAME', { players: players, thisPlayer: null, choiceCard: _choiceCard });
     console.log("Deal and set player in turn" + players[playerInTurn].nickname);
     io.sockets.emit('CHANGE_TURN', players[playerInTurn]);
-    //io.sockets.emit('CHOICE_CARD_SELECTED', { choiceCard: _choiceCard });
-
-    log('Game Deal Completed');
 };
 
 io.sockets.on('connection', function (socket) {
@@ -155,7 +234,7 @@ io.sockets.on('connection', function (socket) {
     //let create room 
     socket.on('CREATE_ROOM', function (data) {
         players.push(data);
-        io.sockets.emit('UPDATE_PLAYERS', { players: players });
+        io.sockets.emit('UPDATE_GAME', { players: players, thisPlayer: null, choiceCard: _choiceCard });
     });
 
     socket.on("CARD_FROM_DECK", function (data) {
@@ -167,24 +246,18 @@ io.sockets.on('connection', function (socket) {
     });
 
     // when player joined to room
-    socket.on('PLAYER_JOINED', function (data) {
-        log(data);
-        data.id = socket.id;
+    socket.on('PLAYER_JOINED', function (player) {
 
-        log(players.length);
+        player.id = socket.id;
 
         if (players.length == 1) {
-            data.isDealer = true;
+            player.isDealer = true;
             prepareDeckAndShuffle();
         }
 
-        players.push(data);
+        players.push(player);
 
-        // if (players.length >= 2) {
-        //     setTimeout(function () { dealGame(); }, 5000);
-        // }
-
-        io.sockets.emit('UPDATE_PLAYERS', { players: players, thisPlayer: data, choiceCard: null });
+        io.sockets.emit('UPDATE_GAME', { players: players, thisPlayer: player, choiceCard: null });
 
     });
 
@@ -222,22 +295,6 @@ io.sockets.on('connection', function (socket) {
         showLog();
     });
 
-    // when player take a card 
-    socket.on("PREPARE_DECK", function (data) {
-        var card = deck[0];
-        deck.splice(0, 1);
-
-        io.sockets.emit('UPDATE_USERS', { onlineUsers: users });
-    });
-
-    // when player take a card 
-    socket.on("TAKE_CARD", function (data) {
-        var card = deck[0];
-        deck.splice(0, 1);
-
-        io.sockets.emit('UPDATE_USERS', { onlineUsers: users });
-    });
-
     // when player throw a card 
     socket.on("CARDS_THROW", function (data) {
         io.sockets.emit('CARDS_THROW', data);
@@ -246,64 +303,64 @@ io.sockets.on('connection', function (socket) {
     // when player take choice card 
     socket.on("CHOICE_CARD_TAKEN", function (data) {
         io.sockets.emit('CHOICE_CARD_TAKEN', data);
+        io.sockets.emit("NEW_MESSAGE", 'CHOICE_CARD_TAKEN');
     });
 
     // when player ignore choice card 
     socket.on("CHOICE_CARD_IGNORED", function () {
         io.sockets.emit('CHOICE_CARD_IGNORED');
         console.log("CHOICE_CARD_IGNORED");
+        io.sockets.emit("NEW_MESSAGE", 'CHOICE_CARD_IGNORED');
     });
 
-     // when player take a card from floor
-    socket.on("CARD_FROM_FLOOR", function (data) {
-        io.sockets.emit('CARD_FROM_FLOOR', data);
+    // when player take a card from floor
+    socket.on("CARD_FROM_FLOOR", function (player, card) {
+        io.sockets.emit('CARD_FROM_FLOOR', card);
         console.log("a card taken from floor ");
+        io.sockets.emit("NEW_MESSAGE", 'CARD_FROM_FLOOR ' + player.nickname + " " + card.name);
     });
 
-    socket.on("CHANGE_TURN", function () {
-        if (playerInTurn == players.length-1) {
+    socket.on("CHANGE_TURN", function (player) {
+        if (playerInTurn == players.length - 1) {
             playerInTurn = 0;
         } else {
             playerInTurn++;
         }
 
+        for (var i = 0; i < players.length; i++) {
+            if (players[i].id == socket.id) {
+                players[i] = player;
+                console.log('Player ' + player.nickname + ' has ' + player.points + ' points in hand');
+                break;
+            }
+        }
+
         console.log('Changing turn to ' + playerInTurn);
 
         io.sockets.emit("CHANGE_TURN", players[playerInTurn]);
+        io.sockets.emit("NEW_MESSAGE", 'CHANGE_TURN TO ' + players[playerInTurn].nickname.toUpperCase());
     });
 
     socket.on("DRAG_CARD", function (data) {
         io.sockets.emit("DRAG_CARD", data);
     });
 
-     socket.on("START_GAME", function () {
+    socket.on("START_GAME", function () {
         dealGame();
     });
 
     // when one player called game
-    socket.on("CALL_GAME", function(data){
+    socket.on("CALL_GAME", function (player) {
+
         for (var i = 0; i < players.length; i++) {
             if (players[i].id == socket.id) {
-                players[i].isGameCalled = true;
-                console.log('Player ' + data.nickname + ' called game with ' + data.points + ' in hand');
+                players[i] = player;
+                console.log(player.nickname + ' called game with ' + player.points + ' in hand');
+                io.sockets.emit("NEW_MESSAGE", player.nickname + ' called game with ' + player.points + ' in hand');
                 break;
             }
         }
-
-        io.sockets.emit("GAME_CALL_UPDATE", data);
+        checkResults();
     });
-
-    // when one player called game
-    socket.on("CALL_CALL_UPDATE", function(points){
-        for (var i = 0; i < players.length; i++) {
-            if (players[i].id == socket.id) {
-                players[i].points=points;
-                console.log('Player ' + data.nickname + ' has ' + points + ' points in hand');
-                break;
-            }
-        }
-    });
-
-
 });
 
